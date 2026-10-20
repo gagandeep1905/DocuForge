@@ -2,22 +2,14 @@ name: CI
 
 on:
   push:
-    branches: [main, 'week1/**']
+    branches: [main, 'week1/**', 'fix/**']
   pull_request:
     branches: [main]
 
 jobs:
   validate:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: build-only-placeholder
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only-placeholder
-      R2_ACCOUNT_ID: build-only
-      R2_ACCESS_KEY_ID: build-only-placeholder
-      R2_SECRET_ACCESS_KEY: build-only-placeholder
-      R2_BUCKET: docuforge-build-only
+    # Intentionally no placeholder cloud credentials: the build must work before secrets are set.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

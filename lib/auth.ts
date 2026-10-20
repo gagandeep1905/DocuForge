@@ -1,8 +1,10 @@
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseAdminConfigured } from './supabase';
 
 export class AuthError extends Error {}
+export class ServiceConfigurationError extends Error {}
 
 export async function requireUser(req: Request) {
+  if (!isSupabaseAdminConfigured()) throw new ServiceConfigurationError();
   const token = req.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];
   if (!token) throw new AuthError('Missing token');
   const { data, error } = await supabaseAdmin.auth.getUser(token);

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireUser, AuthError } from '@/lib/auth';
+import { requireUser, AuthError, ServiceConfigurationError } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
-import { objectSize } from '@/lib/storage';
+import { objectSize, StorageConfigurationError } from '@/lib/storage';
 import { parseGithubUrl } from '@/lib/ingest/github';
 import { LIMITS } from '@/lib/ingest/limits';
 import { inngest } from '@/inngest/client';
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
     const { title, sourceType, sourceRef, userNotes, templateId } = parsed.data;
 
-    // Abuse guard: max 5 unfinished ingests per hour per user
+    // Abuse guard: max 5 unfinished ingests per hour per user.
     const since = new Date(Date.now() - 3600_000).toISOString();
     const { count, error: limitError } = await supabaseAdmin
       .from('projects').select('id', { count: 'exact', head: true })
@@ -72,6 +72,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ id: project.id }, { status: 201 });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e instanceof ServiceConfigurationError) return NextResponse.json({ error: e.message }, { status: 503 });
+    if (e instanceof StorageConfigurationError) return NextResponse.json({ error: e.message }, { status: 503 });
     console.error(e);
     return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
