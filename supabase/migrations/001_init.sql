@@ -1,4 +1,4 @@
--- DocuForge Week 1 schema. Run in the Supabase SQL editor or via \`supabase db push\`.
+-- DocuForge Week 1 schema. Run in the Supabase SQL editor or via `supabase db push`.
 create extension if not exists pgcrypto;
 
 create table university_templates (
