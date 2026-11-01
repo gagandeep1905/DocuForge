@@ -1,4 +1,4 @@
--- DocuForge Week 1 schema. Run in the Supabase SQL editor or via `supabase db push`.
+-- DocuForge Week 1 schema.
 create extension if not exists pgcrypto;
 
 create table university_templates (
@@ -39,14 +39,14 @@ create table project_files (
   path text not null,
   language text,
   size_bytes int not null,
-  content text not null,            -- redacted, size-capped at ingest
+  content text not null,
   role text,
   score int not null default 0,
-  analyze boolean not null default false,
-  summary text,                     -- filled in Week 2
+  "analyze" boolean not null default false,
+  summary text,
   unique (project_id, path)
 );
-create index project_files_project_idx on project_files(project_id, analyze);
+create index project_files_project_idx on project_files(project_id, "analyze");
 
 create table project_models (
   id uuid primary key default gen_random_uuid(),
@@ -88,18 +88,18 @@ create table payments (
   created_at timestamptz not null default now()
 );
 
--- Auto-create a profile for every new auth user
+-- Automatically create a profile for each new auth user, including guests.
 create or replace function handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into profiles (id, full_name) values (new.id, new.raw_user_meta_data->>'full_name');
+  insert into profiles (id, full_name)
+  values (new.id, new.raw_user_meta_data->>'full_name');
   return new;
 end $$;
+
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function handle_new_user();
 
--- RLS: clients may only READ their own rows. All writes go through API routes
--- using the service-role key, which bypasses RLS.
 alter table profiles enable row level security;
 alter table projects enable row level security;
 alter table project_files enable row level security;

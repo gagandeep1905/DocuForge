@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database.types';
 
 export class SupabaseConfigurationError extends Error {
   constructor() {
@@ -11,12 +12,12 @@ export function isSupabaseAdminConfigured(): boolean {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-let client: SupabaseClient | null = null;
+let client: SupabaseClient<Database> | null = null;
 
-function getClient(): SupabaseClient {
+function getClient(): SupabaseClient<Database> {
   if (!isSupabaseAdminConfigured()) throw new SupabaseConfigurationError();
   if (!client) {
-    client = createClient(
+    client = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } },
@@ -27,7 +28,7 @@ function getClient(): SupabaseClient {
 
 // Lazy initialization keeps the landing page/build usable before production secrets exist.
 // Never import this module from a client component: the service-role key is server-only.
-export const supabaseAdmin = new Proxy({} as SupabaseClient, {
+export const supabaseAdmin = new Proxy({} as SupabaseClient<Database>, {
   get(_target, property) {
     const current = getClient() as unknown as Record<PropertyKey, unknown>;
     const value = current[property];
