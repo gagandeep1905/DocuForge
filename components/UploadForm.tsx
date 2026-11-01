@@ -3,20 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authHeaders } from '@/lib/client-auth';
+import { supabaseBrowser } from '@/lib/supabase-browser';
+import { isAllowedZipUploadSize } from '@/lib/ingest/limits';
 
-const MAX_BYTES = 100 * 1024 * 1024;
-
-function putWithProgress(url: string, file: File, onProgress: (pct: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', url);
-    xhr.setRequestHeader('Content-Type', 'application/zip');
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Upload failed. Please try again.')));
-    xhr.onerror = () => reject(new Error('Network error during upload.'));
-    xhr.send(file);
-  });
-}
+const STORAGE_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'docuforge-uploads';
 
 async function api<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, { method: 'POST', headers: await authHeaders(), body: JSON.stringify(body) });
@@ -32,7 +22,6 @@ export default function UploadForm() {
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [repoUrl, setRepoUrl] = useState('');
-  const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +31,7 @@ export default function UploadForm() {
     if (mode === 'zip') {
       if (!file) return setError('Choose a .zip file of your project.');
       if (!/\.zip$/i.test(file.name)) return setError('Only .zip files are supported.');
-      if (file.size > MAX_BYTES) return setError('Zip is larger than 100 MB. Remove node_modules and build folders first.');
+      if (!isAllowedZipUploadSize(file.size)) return setError('Zip must be 50 MB or smaller. Remove node_modules and build folders first.');
     } else if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/.test(repoUrl.trim())) {
       return setError('Enter a public GitHub URL like https://github.com/owner/repo');
     }
@@ -51,10 +40,21 @@ export default function UploadForm() {
     try {
       let sourceRef = repoUrl.trim();
       if (mode === 'zip' && file) {
-        const { url, key } = await api<{ url: string; key: string }>('/api/uploads/sign', { filename: file.name, size: file.size });
-        await putWithProgress(url, file, setProgress);
-        sourceRef = key;
+        if (!supabaseBrowser) throw new Error('Supabase guest storage is not configured. Please contact the site owner.');
+        const { path, token } = await api<{ path: string; token: string }>('/api/uploads/sign', {
+          filename: file.name,
+          size: file.size,
+        });
+        const { data, error: uploadError } = await supabaseBrowser.storage
+          .from(STORAGE_BUCKET)
+          .uploadToSignedUrl(path, token, file, {
+            contentType: 'application/zip',
+            upsert: false,
+          });
+        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+        sourceRef = data.path;
       }
+
       const { id } = await api<{ id: string }>('/api/projects', {
         title, sourceType: mode, sourceRef, userNotes: notes || undefined,
       });
@@ -83,7 +83,7 @@ export default function UploadForm() {
       </label>
 
       {mode === 'zip' ? (
-        <label className="block text-sm font-medium">Project zip (max 100 MB)
+        <label className="block text-sm font-medium">Project zip (max 50 MB)
           <input type="file" accept=".zip" className="mt-1 block w-full text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
       ) : (
@@ -97,13 +97,10 @@ export default function UploadForm() {
           placeholder="What problem does it solve? Who is it for? Anything the code doesn't make obvious." />
       </label>
 
-      {busy && mode === 'zip' && progress > 0 && progress < 100 && (
-        <div className="h-2 overflow-hidden rounded bg-gray-200"><div className="h-full bg-indigo-600" style={{ width: `${progress}%` }} /></div>
-      )}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
       <button disabled={busy} className="w-full rounded-md bg-indigo-600 py-2.5 text-sm font-medium text-white disabled:opacity-50">
-        {busy ? 'Working…' : 'Analyze project'}
+        {busy ? 'Uploading and analyzing…' : 'Analyze project'}
       </button>
       <p className="text-xs text-gray-500">Dependencies, build folders, binaries and secret files (.env, keys) are skipped automatically.</p>
     </form>

@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { requireUser, AuthError, ServiceConfigurationError } from '@/lib/auth';
-import { presignUpload, StorageConfigurationError } from '@/lib/storage';
-import { LIMITS } from '@/lib/ingest/limits';
+import { createSignedUpload, StorageConfigurationError } from '@/lib/storage';
+import { isAllowedZipUploadSize } from '@/lib/ingest/limits';
 
 const Body = z.object({
   filename: z.string().min(1).max(200).regex(/\.zip$/i, 'Only .zip files are supported'),
-  size: z.number().int().positive().max(LIMITS.maxUploadBytes, 'Zip is larger than 100 MB'),
+  size: z.number().refine(isAllowedZipUploadSize, 'ZIP must be between 1 byte and 50 MB'),
 });
 
 export async function POST(req: Request) {
@@ -24,8 +24,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     }
     const key = `uploads/${user.id}/${randomUUID()}.zip`;
-    const url = await presignUpload(key, parsed.data.size);
-    return NextResponse.json({ url, key });
+    const signedUpload = await createSignedUpload(key);
+    return NextResponse.json(signedUpload);
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (e instanceof ServiceConfigurationError) return NextResponse.json({ error: e.message }, { status: 503 });

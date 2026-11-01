@@ -5,9 +5,9 @@ DocuForge is a student-focused documentation app for software projects. The repo
 ## Week 1 workflow
 
 1. Open DocuForge and start a project. No sign-in or sign-up form is required; the browser creates a guest session automatically.
-2. Upload a ZIP (up to 100 MB) or provide a public GitHub repository URL.
-3. The file is uploaded to Cloudflare R2 using a short-lived, guest-scoped presigned URL.
-4. Inngest queues ingestion. The worker filters generated files, dependencies, archives, binaries, and secret files, then redacts common credentials in retained source.
+2. Upload a ZIP (up to 50 MB) or provide a public GitHub repository URL.
+3. For ZIP uploads, the app requests a one-time signed upload token from its authenticated server and sends the file directly to a private Supabase Storage bucket. The Supabase secret key never reaches the browser.
+4. Inngest queues ingestion. The worker downloads the uploaded archive from Supabase Storage, filters generated files, dependencies, archives, binaries, and secret files, then redacts common credentials in retained source.
 5. DocuForge detects languages and frameworks, ranks files, and saves file summaries/metadata for the next milestone. It does **not** execute the uploaded project.
 6. The project page polls for status and shows coverage information.
 
@@ -17,8 +17,7 @@ Guest workspaces are created through Supabase anonymous authentication behind th
 
 - Node.js 20.9 or newer
 - npm
-- A Supabase project with anonymous sign-ins enabled
-- A Cloudflare R2 bucket and S3-compatible API token
+- A Supabase project with anonymous sign-ins and Storage enabled
 - Inngest (local development can use the Inngest dev server)
 - Optional: a GitHub personal access token to raise API rate limits for public repositories
 
@@ -39,28 +38,15 @@ Fill in `.env.local` with your own service credentials. Never commit `.env.local
 4. Add `http://localhost:3000` and your deployed app URL to the allowed site/redirect URL configuration if required by your Supabase project settings.
 5. Configure the public client variables and server-only Supabase secret key in your deployment environment. Use `SUPABASE_SECRET_KEY` for a modern `sb_secret_*` key. The code also accepts the legacy `SUPABASE_SERVICE_ROLE_KEY` variable during migration. Never expose either server-only variable to browser code.
 
-The migrations create the Week 1 tables, a profile trigger for new auth users (including anonymous guests), row-level-security policies, the generic B.Tech report template, restricted trigger-function execution, and supporting indexes. Browser reads are limited by RLS. Server API routes use a server-only Supabase secret key and enforce ownership checks in the route handlers.
+The migrations create the Week 1 database tables, a profile trigger for new auth users (including anonymous guests), row-level-security policies, the generic B.Tech report template, restricted trigger-function execution, and supporting indexes.
+
+### Supabase Storage
+
+The migration creates a private `docuforge-uploads` bucket with a 50 MiB per-file limit and `application/zip` content-type restriction. Storage object access is private; the RLS insert policy only permits an authenticated guest to upload under `uploads/<that-guest-user-id>/`. The app's server verifies the guest session and creates a one-time signed upload token for a random object key. The browser uses that token for the upload; it never receives the Supabase secret key. The ingestion worker downloads the object using the server-side Supabase client.
+
+Set `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET=docuforge-uploads` in the environment. This is a bucket name, not a secret. Supabase Free projects enforce a 50 MB maximum file size, so DocuForge's ZIP upload limit is 50 MiB.
 
 For a public launch, add CAPTCHA protection (Cloudflare Turnstile or hCaptcha) to anonymous sign-ins and monitor auth rate limits. Anonymous sessions are browser-bound and are not recoverable after browser storage is cleared.
-
-### Cloudflare R2
-
-1. Create an R2 bucket (the default name in `.env.example` is `docuforge-uploads`).
-2. Create an API token with access only to this bucket and read/write object permissions.
-3. Add the following CORS policy to the bucket for local browser uploads (add your deployed app origin before production use):
-
-```json
-[
-  {
-    "AllowedOrigins": ["http://localhost:3000"],
-    "AllowedMethods": ["PUT"],
-    "AllowedHeaders": ["*"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-4. Consider adding an R2 lifecycle rule to remove objects under `uploads/` after 30 days.
 
 ### Inngest
 
@@ -72,7 +58,7 @@ See `.env.example`. The important values are:
 
 - `SUPABASE_URL` and `SUPABASE_SECRET_KEY` — server-side Supabase client. Use the modern `sb_secret_*` key; the legacy `SUPABASE_SERVICE_ROLE_KEY` variable is supported as a fallback. Keep the key secret.
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` — browser client used to create anonymous guest sessions. A Supabase publishable `sb_publishable_*` key can be used for the public key value.
-- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — storage.
+- `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET` — private upload bucket name (default: `docuforge-uploads`).
 - `GITHUB_TOKEN` — optional token for fetching public GitHub repository ZIPs.
 - `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` — production Inngest integration.
 
@@ -97,11 +83,11 @@ npm test
 npm run build
 ```
 
-Tests cover ZIP traversal protection, common skip rules, secret redaction, language/framework detection, and file ranking.
+Tests cover ZIP traversal protection, common skip rules, secret redaction, upload-size enforcement, language/framework detection, and file ranking.
 
 ## Ingestion limits and safety
 
-- Compressed upload cap: 100 MB.
+- Compressed ZIP upload cap: 50 MiB.
 - Archive entry cap: 5,000 files.
 - Declared extracted-size cap: 400 MB.
 - Per-file source cap: 200 KB.
