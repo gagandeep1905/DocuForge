@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       }
       const size = await objectSize(sourceRef);
       if (size === null) return NextResponse.json({ error: 'Upload not found. Please upload again.' }, { status: 400 });
-      if (size > LIMITS.maxUploadBytes) return NextResponse.json({ error: 'Zip is larger than 100 MB' }, { status: 400 });
+      if (size > LIMITS.maxUploadBytes) return NextResponse.json({ error: 'Zip is larger than 50 MB' }, { status: 400 });
     } else if (!parseGithubUrl(sourceRef)) {
       return NextResponse.json({ error: 'Enter a public GitHub URL like https://github.com/owner/repo' }, { status: 400 });
     }
