@@ -29,7 +29,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Fill in `.env.local` with your own service credentials. Never commit `.env.local` or a service-role key.
+Fill in `.env.local` with your own service credentials. Never commit `.env.local` or a Supabase secret key.
 
 ### Supabase
 
@@ -37,9 +37,9 @@ Fill in `.env.local` with your own service credentials. Never commit `.env.local
 2. Apply the versioned migrations in order with `supabase db push`. The repository migration files are under `supabase/migrations/`.
 3. In the Supabase Dashboard, open **Authentication → Sign In / Providers** (or the Auth settings for your project) and enable **Anonymous Sign-Ins**. Email OTP/magic-link sign-in is not needed for the guest flow.
 4. Add `http://localhost:3000` and your deployed app URL to the allowed site/redirect URL configuration if required by your Supabase project settings.
-5. Configure both public client variables and the server-only service-role key in your deployment environment. Never expose `SUPABASE_SERVICE_ROLE_KEY` to browser code.
+5. Configure the public client variables and server-only Supabase secret key in your deployment environment. Use `SUPABASE_SECRET_KEY` for a modern `sb_secret_*` key. The code also accepts the legacy `SUPABASE_SERVICE_ROLE_KEY` variable during migration. Never expose either server-only variable to browser code.
 
-The migrations create the Week 1 tables, a profile trigger for new auth users (including anonymous guests), row-level-security policies, the generic B.Tech report template, restricted trigger-function execution, and supporting indexes. Browser reads are limited by RLS. Server API routes use the service-role key and enforce ownership checks in the route handlers.
+The migrations create the Week 1 tables, a profile trigger for new auth users (including anonymous guests), row-level-security policies, the generic B.Tech report template, restricted trigger-function execution, and supporting indexes. Browser reads are limited by RLS. Server API routes use a server-only Supabase secret key and enforce ownership checks in the route handlers.
 
 For a public launch, add CAPTCHA protection (Cloudflare Turnstile or hCaptcha) to anonymous sign-ins and monitor auth rate limits. Anonymous sessions are browser-bound and are not recoverable after browser storage is cleared.
 
@@ -70,8 +70,8 @@ The local Inngest dev server discovers the app at `http://localhost:3000/api/inn
 
 See `.env.example`. The important values are:
 
-- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — server-side Supabase client (keep the service-role key secret).
-- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` — browser client used to create anonymous guest sessions. A Supabase publishable key can be used for the public key value.
+- `SUPABASE_URL` and `SUPABASE_SECRET_KEY` — server-side Supabase client. Use the modern `sb_secret_*` key; the legacy `SUPABASE_SERVICE_ROLE_KEY` variable is supported as a fallback. Keep the key secret.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` — browser client used to create anonymous guest sessions. A Supabase publishable `sb_publishable_*` key can be used for the public key value.
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — storage.
 - `GITHUB_TOKEN` — optional token for fetching public GitHub repository ZIPs.
 - `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` — production Inngest integration.
