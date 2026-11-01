@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authHeaders } from '@/lib/client-auth';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { LIMITS } from '@/lib/ingest/limits';
+import { isAllowedZipUploadSize } from '@/lib/ingest/limits';
 
 const STORAGE_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'docuforge-uploads';
 
@@ -31,7 +31,7 @@ export default function UploadForm() {
     if (mode === 'zip') {
       if (!file) return setError('Choose a .zip file of your project.');
       if (!/\.zip$/i.test(file.name)) return setError('Only .zip files are supported.');
-      if (file.size > LIMITS.maxUploadBytes) return setError('Zip is larger than 50 MB. Remove node_modules and build folders first.');
+      if (!isAllowedZipUploadSize(file.size)) return setError('Zip must be 50 MB or smaller. Remove node_modules and build folders first.');
     } else if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/.test(repoUrl.trim())) {
       return setError('Enter a public GitHub URL like https://github.com/owner/repo');
     }
