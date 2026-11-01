@@ -6,3 +6,7 @@ export const LIMITS = {
   maxAnalyzed: 150,                       // top-ranked files flagged for AI summarization
   insertBatchBytes: 4 * 1024 * 1024,      // DB insert batch size
 } as const;
+
+export function isAllowedZipUploadSize(size: number): boolean {
+  return Number.isSafeInteger(size) && size > 0 && size <= LIMITS.maxUploadBytes;
+}
