@@ -16,7 +16,6 @@ export default function HomePage() {
           <span className="text-lg font-semibold tracking-tight">DocuForge</span>
         </Link>
         <nav className="flex items-center gap-3 text-sm font-medium">
-          <Link href="/login" className="hidden rounded-full px-4 py-2.5 text-gray-700 transition hover:bg-white sm:inline-flex">Sign in</Link>
           <Link href="/projects/new" className="rounded-full bg-ink px-4 py-2.5 text-white transition hover:bg-violet-700 sm:px-5">Start a project <span aria-hidden="true">↗</span></Link>
         </nav>
       </header>
@@ -37,13 +36,15 @@ export default function HomePage() {
             <Link href="/projects/new" className="inline-flex items-center justify-center gap-3 rounded-full bg-violet-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:-translate-y-0.5 hover:bg-violet-700">
               Analyze my project <span aria-hidden="true">→</span>
             </Link>
-            <Link href="/login" className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-3.5 text-sm font-semibold text-gray-700 transition hover:border-violet-200 hover:text-violet-700">Sign in with email</Link>
           </div>
           <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-500">
             <span className="inline-flex items-center gap-2"><span className="text-emerald-600">✓</span> ZIP and public GitHub URLs</span>
             <span className="inline-flex items-center gap-2"><span className="text-emerald-600">✓</span> Secret-file filtering</span>
             <span className="inline-flex items-center gap-2"><span className="text-emerald-600">✓</span> Student-reviewed details</span>
           </div>
+          <p className="mt-5 max-w-xl text-xs leading-5 text-gray-500">
+            No sign-in or sign-up required. DocuForge creates a guest workspace automatically. Your projects stay linked to this browser.
+          </p>
         </div>
 
         <div className="relative mx-auto w-full max-w-xl">
