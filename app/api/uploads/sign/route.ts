@@ -3,11 +3,11 @@ import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { requireUser, AuthError, ServiceConfigurationError } from '@/lib/auth';
 import { createSignedUpload, StorageConfigurationError } from '@/lib/storage';
-import { LIMITS } from '@/lib/ingest/limits';
+import { isAllowedZipUploadSize } from '@/lib/ingest/limits';
 
 const Body = z.object({
   filename: z.string().min(1).max(200).regex(/\.zip$/i, 'Only .zip files are supported'),
-  size: z.number().int().positive().max(LIMITS.maxUploadBytes, 'Zip is larger than 50 MB'),
+  size: z.number().refine(isAllowedZipUploadSize, 'ZIP must be between 1 byte and 50 MB'),
 });
 
 export async function POST(req: Request) {
